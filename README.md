@@ -1,5 +1,5 @@
 proc Tree: var = 31 mod 15 = 1
-sig Tree: var = 31 mod 13 = 4
+sig Tree: var = 31 mod 13 = 5
 
 procTree:
 	var1: 
@@ -7,8 +7,10 @@ procTree:
 
 
 sigTree:
-	var4:
-	1 -> (2, 3, 4, 5) SIGUSR1	5 -> (6, 7, 8) SIGUSR1	   8 -> 1 SIGUSR1
+	var5:
+
+	1->(2,3) SIGUSR1   3->4 SIGUSR2   4->(5,6,7) SIGUSR1   7->8 SIGUSR1   8->1 SIGUSR2
+
 
 1. Для каждого процесса свой обработчик сигнала, в котором процесс принимает от предыдущего и посылает следующему по таблице
 2. Контроль ошибок -> stderr по шаблону: 'unit_name: message'  <===>  Error open file: 1.txt
