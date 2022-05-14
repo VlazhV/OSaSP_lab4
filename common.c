@@ -9,7 +9,7 @@
 #include <signal.h>
 
 
-#define SIGNALS 100000000
+#define SIGNALS 19
 #define TIME_MAX 12
 
 int sleep100ms()
@@ -120,22 +120,60 @@ int createChildProcesses(int nChild)
 		
 
 		sigact.sa_handler = handlerUsr1;
-		sigemptyset(&sigact.sa_mask);
-		sigaddset(&sigact.sa_mask, SIGTSTP);
+		res = sigemptyset(&sigact.sa_mask);
+		if (res == -1)
+		{
+			perror("error cch1 : sigemptyset() failed");
+			_exit(-1);
+		}
+		
+		res = sigaddset(&sigact.sa_mask, SIGTSTP);
+		if (res == -1)
+		{
+			perror("error cch2 : sigaddset() failed");
+			_exit(-2);
+		}
 		sigact.sa_flags = 0;
-		sigaction(SIGUSR1, &sigact, NULL);
+		
+		res = sigaction(SIGUSR1, &sigact, NULL);
+		if (res == -1)
+		{
+			perror("error cch3 : sigaction failed()");
+			_exit(-3);
+		}
 		
 		sigact.sa_handler = emptyhandlerTstp;
-		sigemptyset(&sigact.sa_mask);
+		res = sigemptyset(&sigact.sa_mask);
+		if (res == -1)
+		{
+			perror("error cch1 : sigemptyset() failed");
+			_exit(-1);
+		}
 		sigact.sa_flags = 0;		
-		sigaction(SIGTSTP, &sigact, NULL);
-				
-			
 		
+		res = sigaction(SIGTSTP, &sigact, NULL);
+		if (res == -1)
+		{
+			perror("error cch3 : sigaction failed()");
+			_exit(-3);
+		}
+				
 				
 		
-		sigemptyset(&sigsetTstp);
-		sigaddset(&sigsetTstp, SIGTSTP);
+		res = sigemptyset(&sigsetTstp);
+		if (res == -1)
+		{
+			perror("error cch1 : sigemptyset() failed");
+			_exit(-1);
+		}
+		
+		res = sigaddset(&sigsetTstp, SIGTSTP);
+		if (res == -1)
+		{
+			perror("error cch2 : sigaddset() failed");
+			_exit(-2);
+		}
+		
 		res = sigwait(&sigsetTstp, &sig);
 		myTime(tmBuf);
 		if (res > 0)
