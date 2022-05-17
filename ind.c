@@ -4,22 +4,32 @@
 #include <signal.h>
 #include "../lab5/mytime.c"
 
-
+#define MAX_SIGNALS 101
 
 pid_t curr_pid, curr_ppid;
 int tableNum;
 char *tmBuf;
-int numMessage;
+int numMessage = 0;
 
 
 void handler_proc1_su2 (int signum)
 {
 	myTime(tmBuf);
 	printf("#%d   %d  %d  get SIGUSR2\t%s\n", tableNum, curr_pid, curr_ppid, tmBuf != NULL ? tmBuf : "time error");	
+	++numMessage;
 	
-//	kill(0, 
-	myTime(tmBuf);
-	printf("#%d   %d  %d  send SIGUSR1\t%s\n", tableNum, curr_pid, curr_ppid, tmBuf != NULL ? tmBuf : "time error");	
+	if (numMessage <= MAX_SIGNALS)
+	{
+	//	kill(0, SIGUSR1);
+		myTime(tmBuf);
+		printf("#%d   %d  %d  send SIGUSR1\t%s\n", tableNum, curr_pid, curr_ppid, tmBuf != NULL ? tmBuf : "time error");	
+	}
+	else
+	{
+		//kill SIGTERM
+		myTime(tmBuf);
+		printf("#%d   %d  %d  send SIGTERM\t%s\n", tableNum, curr_pid, curr_ppid, tmBuf != NULL ? tmBuf : "time error");	
+	}
 }
 
 
