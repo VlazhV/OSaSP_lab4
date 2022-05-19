@@ -1,5 +1,3 @@
-//TODO check all kill sigawait signal
-
 #include <stdio.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -9,7 +7,7 @@
 #include <signal.h>
 
 
-#define SIGNALS 19
+#define SIGNALS 100000
 #define TIME_MAX 12
 
 int sleep100ms()
@@ -58,10 +56,6 @@ char *myTime(char *tmBuf)
 
 
 static int NoMessage = 0;
-static pid_t curr_pid;
-static pid_t curr_parent_pid;
-static pid_t Children[2]; 
-char *log_filename;
 
 typedef void (*sighandler_t)(int);
 
@@ -74,18 +68,18 @@ void handlerUsr1(int NoSig)
 	myTime(tmBuf);	
 
 	printf("#%d  child (%d, %d) RECEIVE signal SIGUSR1 from parent(%d)\t%s\n",
-			++NoMessage, curr_pid, curr_parent_pid, curr_parent_pid, tmBuf != NULL ? tmBuf : "time error");
+			++NoMessage, getpid(), getppid(), getppid(), tmBuf != NULL ? tmBuf : "time error");
 		
 	myTime(tmBuf);
-	int res = kill(curr_parent_pid, SIGUSR2);
+	int res = kill(getppid(), SIGUSR2);
 	if (res == -1)
 	{
-		fprintf(stderr, "error : child(%d, %d) COULDN'T SEND signal SIGUSR2 to parent(%d)\t%s\n", curr_pid, curr_parent_pid, curr_parent_pid, tmBuf != NULL ? tmBuf : "time error");
+		fprintf(stderr, "error : child(%d, %d) COULDN'T SEND signal SIGUSR2 to parent(%d)\t%s\n", getpid(), getppid(), getppid(), tmBuf != NULL ? tmBuf : "time error");
 		perror(" ");
 	}
 	else
 		printf("#%d  child(%d, %d) SENT signal SIGUSR2 to parent(%d)\t%s\n",
-				NoMessage, curr_pid, curr_parent_pid, curr_parent_pid, tmBuf != NULL ? tmBuf : "time error");
+				NoMessage, getpid(), getppid(), getppid(), tmBuf != NULL ? tmBuf : "time error");
 
 }
 
@@ -99,7 +93,6 @@ int createChildProcesses(int nChild)
 	pid_t ppid;
 	pid_t pid;
 	int res;
-	sighandler_t res_signal;
 	int sig;
 	
 	struct sigaction sigact;
@@ -111,12 +104,8 @@ int createChildProcesses(int nChild)
 		perror("fork() failed");
 		return -1;
 	case 0:		
-	
-
-		curr_pid = getpid();
-		curr_parent_pid = getppid();
 		
-		printf("\n|--- CHILD [create]: my pid is %d\t my parent's pid is %d\t%s ---|\n\n", curr_pid, curr_parent_pid, myTime(tmBuf) != NULL ? tmBuf : "time error");		
+		printf("\n|--- CHILD [create]: my pid is %d\t my parent's pid is %d\t%s ---|\n\n", getpid(), getppid(), myTime(tmBuf) != NULL ? tmBuf : "time error");		
 		
 
 		sigact.sa_handler = handlerUsr1;
@@ -183,12 +172,10 @@ int createChildProcesses(int nChild)
 		}
 		
 												
-		printf("\n|--- CHILD [terminate]: my pid is %d\t my parent's pid is %d\t%s ---|\n\n", curr_pid, curr_parent_pid, tmBuf != NULL ? tmBuf : "time error");				
+		printf("\n|--- CHILD [terminate]: my pid is %d\t my parent's pid is %d\t%s ---|\n\n", getpid(), getppid(), tmBuf != NULL ? tmBuf : "time error");				
 		_exit(0);
 	default:
-		curr_pid = getpid();
-		curr_parent_pid = getppid();
-		Children[nChild - 1] = p;
+
 		return createChildProcesses(nChild-1);
 	}
 	
@@ -204,7 +191,7 @@ void handlerUsr2(int NoSig, siginfo_t *info, void *context)
 	pid_t sender_pid = info->si_pid;
 	
 	printf("\t\t#%d parent(%d) RECEIVE signal SIGUSR2 from child(%d)\t%s\n",
-			NoMessage, curr_pid, sender_pid, tmBuf != NULL ? tmBuf : "time error");
+			NoMessage, getpid(), sender_pid, tmBuf != NULL ? tmBuf : "time error");
 	
 	
 	int res = sleep100ms();
@@ -217,10 +204,10 @@ void handlerUsr2(int NoSig, siginfo_t *info, void *context)
 		res = kill(0, SIGUSR1);
 		if (res == -1)
 			fprintf(stderr, "\t\terror : #%d parent(%d) COULDN'T SEND signal SIGUSR2 to children\t%s\n",
-										NoMessage, curr_pid, tmBuf != NULL ? tmBuf : "time error");
+										NoMessage, getpid(), tmBuf != NULL ? tmBuf : "time error");
 		else
 			printf("\t\t#%d parent(%d) SENT signal SIGUSR2 to children\t%s\n",
-										++NoMessage, curr_pid, tmBuf != NULL ? tmBuf : "time error");
+										++NoMessage, getpid(), tmBuf != NULL ? tmBuf : "time error");
 	}
 	else
 	{
@@ -230,7 +217,7 @@ void handlerUsr2(int NoSig, siginfo_t *info, void *context)
 			perror("error m8: kill() falied : couldn't send SIGTSTP");
 		else
 			printf("\t\t#%d parent(%d) SENT signal SIGTSTP to children\t%s\n",
-								++NoMessage, curr_pid, tmBuf != NULL ? tmBuf : "time error");
+								++NoMessage, getpid(), tmBuf != NULL ? tmBuf : "time error");
 	}
 	
 	
@@ -259,26 +246,44 @@ int main()
 	
 
 	
-	printf("\n|--- PARENT : my pid is %d\t my parent's pid is %d\t%s ---|\n\n", curr_pid, curr_parent_pid, myTime(tmBuf) != NULL ? tmBuf : "time error");
+	printf("\n|--- PARENT : my pid is %d\t my parent's pid is %d\t%s ---|\n\n", getpid(), getppid(), myTime(tmBuf) != NULL ? tmBuf : "time error");
 
-//DEBUG
 	sleep(1);	
-	putchar('\n');
-	for (int i = 0; i < nChildren; ++i)
-		printf("%d ", Children[i]);
-	putchar('\n');
 	
 
-//SIG_HANDLE		TODO nee checks
+//SIG_HANDLE
 	struct sigaction sigact;
 	sigact.sa_sigaction = handlerUsr2;
 	sigact.sa_flags = SA_SIGINFO;
-	sigemptyset(&sigact.sa_mask);
+
+	res = sigemptyset(&sigact.sa_mask);
+	if (res == -1)
+	{
+		perror("error : sigemptyset() failed");
+		return -1;
+	}
 	
-	sigaction(SIGUSR2, &sigact, NULL);
+	res = sigaction(SIGUSR2, &sigact, NULL);
+	if (res == -1)
+	{
+		perror("error : sigaction() failed");
+		return -1;
+	}
 	
-	signal(SIGUSR1, SIG_IGN);
-	signal(SIGTSTP, SIG_IGN);
+	sighandler_t resh = signal(SIGUSR1, SIG_IGN);
+	if (resh == SIG_ERR)
+	{
+		perror("error: signal() failed");
+		return -1;
+	}
+	
+	resh = signal(SIGTSTP, SIG_IGN);
+	if (resh == SIG_ERR)
+	{
+		perror("error: signal() failed");
+		return -1;
+	}
+	
 	
 
 
@@ -292,10 +297,10 @@ int main()
 	res = kill(0, SIGUSR1);
 	if (res == -1)
 		fprintf(stderr, "\t\terror : #%d parent(%d) COULDN'T SEND signal SIGUSR2 to children\t%s\n",
-									NoMessage, curr_pid, tmBuf != NULL ? tmBuf : "time error");
+									NoMessage, getpid(), tmBuf != NULL ? tmBuf : "time error");
 	else
 		printf("\t\t#%d parent(%d) SENT signal SIGUSR2 to children\t%s\n",
-									++NoMessage, curr_pid, tmBuf != NULL ? tmBuf : "time error");
+									++NoMessage, getpid(), tmBuf != NULL ? tmBuf : "time error");
 				
 //SEND STOP SIGNAL
 
