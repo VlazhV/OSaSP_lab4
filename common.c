@@ -6,7 +6,7 @@
 #include <time.h>
 #include <signal.h>
 
-
+#define SLEEP_TIME 100000
 #define SIGNALS 100000
 #define TIME_MAX 12
 
@@ -193,10 +193,12 @@ void handlerUsr2(int NoSig, siginfo_t *info, void *context)
 	printf("\t\t#%d parent(%d) RECEIVE signal SIGUSR2 from child(%d)\t%s\n",
 			NoMessage, getpid(), sender_pid, tmBuf != NULL ? tmBuf : "time error");
 	
+	int res;
+//	int res = sleep100ms();
+	//if (res == -1)	
+		//perror("error : sleep100ms() failed");
 	
-	int res = sleep100ms();
-	if (res == -1)	
-		perror("error : sleep100ms() failed");
+	usleep(SLEEP_TIME);
 	
 	if (NoMessage <= SIGNALS)		
 	{
