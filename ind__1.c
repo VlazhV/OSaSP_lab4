@@ -32,7 +32,7 @@ int kill_fun(pid_t pid_to, int sig)
 	
 }
 
-int wait_fun(int n_children)
+void wait_fun(int n_children)
 {
 	int ws;
 	int pid;
@@ -53,7 +53,7 @@ int wait_fun(int n_children)
 				fprintf(stderr, "%d did not terminate\n", pid);
 		}
 		else
-			pid = wait (&ws);
+			--i;
 		
 	}
 }
@@ -116,7 +116,10 @@ void proc1_su2(int signum)
 	printf("#%d %d  %d  get sigusr2 %s\n", tablenum, getpid(), getppid(), tmbuf != NULL ? tmbuf : "time error");
 	y++;
 	
-	kill_fun(0, SIGUSR1);
+	if (y <= SIGS)
+		kill_fun(0, SIGUSR1);
+	else
+		kill_fun(0, SIGTERM);
 }
 
 void handle(int signum, sighandler_t handler, int sigign)
@@ -146,7 +149,7 @@ int main()
 	tmbuf = (char*)calloc(TIME_MAX, 1);
 	if (tmbuf == NULL)
 	{
-		perror("error: cannot alloc mem");
+		perror("error parent: cannot alloc mem");
 		return -1;
 	}
 	
@@ -189,6 +192,7 @@ int main()
 					sleep(1);
 					kill_fun(0, SIGUSR1);
 					wait_fun(3);
+					//while(1);
 					exit(0);
 				}//--child 1
 				else if (p == 0)
