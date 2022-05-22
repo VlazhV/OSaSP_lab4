@@ -1,277 +1,349 @@
-//TODO maybe tmBuf errors
-#include <stdio.h>
-#include <unistd.h>
-#include <stdlib.h>
 #include <signal.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/wait.h>
+
 #include "../lab5/mytime.c"
 
-#define MAX_SIGNALS 101
-#define PROC 		9
+#define SIGS 101
 
-int tableNum;
-char *tmBuf;
-int numMessage = 0;
-pid_t root_pid;
+
+int tablenum;
+int x = 0, y = 0;
+pid_t pidnext;
+char *tmbuf;
+int to_exit = 0;
 
 typedef void (*sighandler_t)(int);
 
-
-int ini_routine(int sig, int sig_ign, sighandler_t handler)
+int kill_fun(pid_t pid_to, int sig)
 {
-	struct sigaction sigact;
-
-	sigact.sa_handler = handler;
-	sigact.sa_flags = 0;			
-	sigemptyset(&sigact.sa_mask);
-	sigaddset(&sigact.sa_mask, sig_ign);
-	sigaction (sig, &sigact, NULL);
-	
-				
-	printf("proc #%d, pid = %d, ppid = %d\n\n", tableNum, getpid(), getppid());
-}
-
-
-//void handler_to_connect_		
-
-void handler_proc1_su2 (int signum)
-{
-	myTime(tmBuf);
-	printf("#%d   %d  %d  get SIGUSR2\t%s\n", tableNum, getpid(), getppid(), tmBuf != NULL ? tmBuf : "time error");	
-	++numMessage;
-	
-	if (numMessage <= MAX_SIGNALS)
-	{
-	//	kill(0, SIGUSR1);
-		myTime(tmBuf);
-		printf("#%d   %d  %d  send SIGUSR1\t%s\n", tableNum, getpid(), getppid(), tmBuf != NULL ? tmBuf : "time error");	
-	}
+	int res = kill( pid_to, sig);
+	if (res == 0)
+		printf("#%d %d  %d  send %s %s\n", tablenum, getpid(), getppid(), sig == SIGUSR1 ? "sigusr1" : sig == SIGUSR2 ? "sigusr2" : "sigterm" ,tmbuf != NULL ? tmbuf : "time error");
 	else
 	{
-		//kill SIGTERM
-		myTime(tmBuf);
-		printf("#%d   %d  %d  send SIGTERM\t%s\n", tableNum, getpid(), getppid(), tmBuf != NULL ? tmBuf : "time error");	
+		fprintf(stderr, "#%d %d : kill() failed", tablenum, getpid());
+		perror(" ");
+	}
+		
+	return res;
+	
+}
+
+void wait_fun(int n_children)
+{
+	int ws;
+	int pid;
+	
+	for (int i = 0; i < n_children; ++i)
+	{
+		pid = wait(&ws);
+		if (pid != -1)
+		{
+			if (WIFEXITED(ws))
+			{
+				if (WEXITSTATUS(ws) != 0)
+					fprintf(stderr, "%d terminated unsuccessfully\n", pid);
+				else
+					printf("%d terminated successfully\n", pid);
+			}
+			else
+				fprintf(stderr, "%d did not terminate\n", pid);
+		}
+		else
+			--i;
+		
 	}
 }
 
 
-
-void handler_proc2_3_su1 (int signum)
+void proc2_su1(int signum)
 {
-	myTime(tmBuf);
-	printf("#%d   %d  %d  get SIGUSR2\t%s\n", tableNum, getpid(), getppid(), tmBuf != NULL ? tmBuf : "time error");	
+	myTime(tmbuf);
+	printf("#%d %d  %d  get sigusr1 %s\n", tablenum, getpid(), getppid(), tmbuf != NULL ? tmbuf : "time error");
+	x++;
+}
+
+void proc3_su1(int signum)
+{
+	myTime(tmbuf);
+	printf("#%d %d  %d  get sigusr1 %s\n", tablenum, getpid(), getppid(), tmbuf != NULL ? tmbuf : "time error");
+	x++;
 	
-//	kill(0, 
-	myTime(tmBuf);
-	printf("#%d   %d  %d  send SIGUSR1\t%s\n", tableNum, getpid(), getppid(), tmBuf != NULL ? tmBuf : "time error");	
+	kill_fun(pidnext, SIGUSR2);
+}
+
+void proc4_su2(int signum)
+{
+	myTime(tmbuf);
+	printf("#%d %d  %d  get sigusr1 %s\n", tablenum, getpid(), getppid(), tmbuf != NULL ? tmbuf : "time error");
+	y++;
+	
+	kill_fun(pidnext, SIGUSR1);
 }
 
 
-
-void handler_proc4_su2 (int signum)
+void proc56_su1(int signum)
 {
-	myTime(tmBuf);
-	printf("#%d   %d  %d  get SIGUSR2\t%s\n", tableNum, getpid(), getppid(), tmBuf != NULL ? tmBuf : "time error");	
+	myTime(tmbuf);
+	printf("#%d %d  %d  get sigusr1 %s\n", tablenum, getpid(), getppid(), tmbuf != NULL ? tmbuf : "time error");
+	x++;
+}
+
+void proc7_su1(int signum)
+{
+	myTime(tmbuf);
+	printf("#%d %d  %d  get sigusr1 %s\n", tablenum, getpid(), getppid(), tmbuf != NULL ? tmbuf : "time error");
 	
-//	kill(0, 
-	myTime(tmBuf);
-	printf("#%d   %d  %d  send SIGUSR1\t%s\n", tableNum, getpid(), getppid(), tmBuf != NULL ? tmBuf : "time error");	
+	x++;
+	kill_fun(pidnext, SIGUSR1);
+}
+
+void proc8_su1(int signum)
+{
+	myTime(tmbuf);
+	printf("#%d %d  %d  get sigusr1 %s\n", tablenum, getpid(), getppid(), tmbuf != NULL ? tmbuf : "time error");
+	x++;
+	
+	kill_fun(pidnext, SIGUSR2);
+}
+
+void proc1_su2(int signum)
+{
+	myTime(tmbuf);
+	printf("#%d %d  %d  get sigusr2 %s\n", tablenum, getpid(), getppid(), tmbuf != NULL ? tmbuf : "time error");
+	y++;
+	
+	if (y <= SIGS)
+		kill_fun(pidnext, SIGUSR1);
+	else
+		kill_fun(pidnext, SIGTERM);
+}
+
+void handle(int signum, sighandler_t handler, int sigign)
+{
+	struct sigaction sigact;
+	sigact.sa_flags = 0;
+	sigemptyset(&sigact.sa_mask);
+	sigact.sa_handler = handler;
+	sigaction(signum, &sigact, NULL);
+	
+	if (sigign != -1 )
+	{
+		sigact.sa_handler = SIG_IGN;
+		sigaction(sigign, &sigact, NULL);
+	}
 }
 
 
-
-void handler_proc5_6_7_su1 (int signum)
+void proc53_term(int sig) //to term
 {
-	myTime(tmBuf);
-	printf("#%d   %d  %d  get SIGUSR2\t%s\n", tableNum, getpid(), getppid(), tmBuf != NULL ? tmBuf : "time error");	
+	myTime(tmbuf);
+	pritnf("#%d %d %d terminated after %d sigusr1 %s\n", tablenum, getpid(), getppid(), x, tmbuf != NULL ? tmbuf: "time error");
+	to_exit = 1;
+}
+
+void proc4_term(int sig) //to term
+{
+	myTime(tmbuf);
+	pritnf("#%d %d %d terminated after %d sigusr2 %s\n", tablenum, getpid(), getppid(), y, tmbuf != NULL ? tmbuf: "time error");
+	to_exit = 1;
+}
+
+void proc257_term(int sig) //to resend?
+{
 	
-//	kill(0, 
-	myTime(tmBuf);
-	printf("#%d   %d  %d  send SIGUSR1\t%s\n", tableNum, getpid(), getppid(), tmBuf != NULL ? tmBuf : "time error");	
+}
+
+void preterm1257()
+{
+	myTime(tmbuf);
+	pritnf("#%d %d %d terminated after %d sigusr1 %s\n", tablenum, getpid(), getppid(), x, tmbuf != NULL ? tmbuf: "time error");
 }
 
 
-
-void handler_proc8_su1(int signum)
+//void foo(int sig, int sig_ign, sighandler_t handler)
+void foo()
 {
-	myTime(tmBuf);
-	printf("#%d   %d  %d  get SIGUSR2\t%s\n", tableNum, getpid(), getppid(), tmBuf != NULL ? tmBuf : "time error");	
-	
-//	kill(0, 
-	myTime(tmBuf);
-	printf("#%d   %d  %d  send SIGUSR1\t%s\n", tableNum, getpid(), getppid(), tmBuf != NULL ? tmBuf : "time error");	
+	printf("#%d %d  %d\t  pgid=%d\n", tablenum, getpid(), getppid(), getpgid(0));
 }
-
 
 int main()
 {
-
-	tableNum = 0;
+	tablenum = 0;
+	foo();
 	
-	tmBuf = (char*)calloc(TIME_MAX, 1);
-	pid_t p = fork();
-	struct sigaction sigact;
-	
-	switch (p)
+	tmbuf = (char*)calloc(TIME_MAX, 1);
+	if (tmbuf == NULL)
 	{
-		case -1: return -1;
-		case 0:
-			//proc 1;			
-			tableNum = 1;
-			
-			
-			ini_routine(SIGUSR2, SIGUSR1, handler_proc1_su2);
-								
-			p = fork();
-			switch (p)
-			{
-				case -1: return -1;
-				case 0: 
-					//proc 2:					
-					tableNum = 2;
-													
-					ini_routine(SIGUSR1, SIGUSR2, handler_proc2_3_su1);
-
-					
-					p = fork();
-					switch (p)
-					{
-						case -1: return -1;
-						case 0:
-							//proc 5
-							tableNum = 5;
-							
-							//SET P GID (4)
-
-			
-							ini_routine(SIGUSR1, SIGUSR2, handler_proc5_6_7_su1);
-							
-							
-							free(tmBuf);							
-							exit(0);
-						default:
-							//proc 2
-							p = fork();
-							switch (p)
-							{
-								case -1: return -1;
-								case 0: 
-									//proc 6
-									tableNum = 6;
-									
-																										
-									ini_routine(SIGUSR1, SIGUSR2, handler_proc5_6_7_su1);
-									
-									p = fork();
-									switch(p)
-									{
-										case -1: return -1;
-										case 0:
-											//proc7
-											tableNum = 7;
-				
-											
-											ini_routine(SIGUSR1, SIGUSR2, handler_proc5_6_7_su1);
-											
-																						
-											p = fork();
-											switch(p)
-											{
-												case -1: return -1;
-												case 0:
-													//proc 8
-													tableNum = 8;
-											
-
-													ini_routine (SIGUSR1, SIGUSR2, handler_proc8_su1);
-													
-													free(tmBuf);			
-													exit(0);
-													
-												default:
-													//proc 7
-													wait(NULL);
-												
-											}
-											
-											free(tmBuf);	
-											exit(0);
-										default:
-											//proc6
-											wait(NULL);
-									}
-									
-									free(tmBuf);
-									exit(0);
-								default:
-									//proc 2
-									wait(NULL);
-									wait(NULL);
-							}
-					}
-					
-					free(tmBuf);
-					exit(0);
-				default:
-				//proc 1;
-					p = fork();
-					switch (p)
-					{
-						case -1: return -1;
-						case 0:
-							//proc 3
-							tableNum = 3;							
-							
-							//SET P GID (1)  ----> SET P GID (4)	
-										
-							ini_routine(SIGUSR1, SIGUSR2, handler_proc2_3_su1);
-
-							
-							free(tmBuf);
-							exit(0);
-						default:
-						//proc 1
-						
-							p = fork();
-							switch(p)
-							{
-								case -1: return -1;
-								case 0:
-									//proc 4
-									tableNum = 4;
-									
-									ini_routine(SIGUSR2, SIGUSR1, handler_proc4_su2);
-																		
-									free(tmBuf);
-									exit(0);
-								default:
-									//proc 1
-									wait(NULL);
-									wait(NULL);
-									wait(NULL);
-							}
-					}
-			}
-			
-			free(tmBuf);
-			exit(0);
-		default:
-			//proc 0
-			printf("proc #%d, pid = %d, ppid = %d\n\n", tableNum, getpid(), getppid());
-			wait(NULL);
+		perror("error parent: cannot alloc mem");
+		return -1;
 	}
+	
+	
+	pid_t pid1;
+	pid_t pid4;
+	
+	struct sigaction sigact;
+	sigact.sa_flags = 0;
+	sigemptyset(&sigact.sa_mask);
+	sigact.sa_handler = SIG_IGN;
+	sigaction(SIGUSR1, &sigact, NULL);
+	sigaction(SIGUSR2, &sigact, NULL);
 
-
-	return 0;
+	pid_t p;
+	p = fork();
+	if (p == 0) //parent 0  --> parent 0 + child 1
+	{//child 1
+		pidnext = 0;
+		pid1 = getpid(); 
+		p = fork();  // child 1 --> child 1 + child 4
+		if (p > 0)
+		{//child 1
+			pid4 = p;
+			
+			p = fork(); // child 1 --> child 1 + child 2
+			if (p > 0)
+			{//child 1
+				
+				p = fork(); // child 1 --> child 1 + child 3
+				if (p > 0)
+				{//child 1
+					
+					handle(SIGUSR2, proc1_su2, SIGUSR1);
+					setpgid(0, 0);
+					tablenum = 1;
+					foo();
+					
+					
+					sleep(1);
+					kill_fun(0, SIGUSR1);
+					wait_fun(3);
+					//while(1);
+					exit(0);
+				}//--child 1
+				else if (p == 0)
+				{//child 3
+					handle(SIGUSR1, proc3_su1, SIGUSR2);
+					
+					pidnext = pid4;
+					setpgid(0, getppid());
+					tablenum = 3;
+					foo();
+					
+					
+																							//					sleep(2);
+																							//					sigset_t ss;
+																							//					sigemptyset(&ss);
+																							//					sigaddset(&ss, SIGUSR2);
+																							//					
+																							//					int pidd;
+																							//					sigwait(&ss, &pidd);
+					while(!to_exit);
+					sleep(3);
+					exit(0);
+					
+				}//--child 3
+				
+			}
+			else if (p == 0)
+			{//child 2
+				
+				p = fork(); //child 2 --> child 2 + child 5
+				if ( p > 0)
+				{
+					
+					p = fork(); //child 2 -- > child 2 + child 6
+					if (p > 0)
+					{//child 2
+						handle(SIGUSR1, proc2_su1, SIGUSR2);
+						setpgid(0, getppid());
+						tablenum = 2;
+						foo();
+						
+						sleep(3);
+						wait_fun(2);
+						exit(0);
+					}//--child 2
+					else if (p == 0)
+					{//child 6
+						
+						p = fork(); //child 6 --> child 6 + child 7
+						if (p == 0)
+						{//child 7
+							
+							p = fork(); //child 7 --> child 7 + child 8
+							if (p > 0)
+							{//child 7
+								handle(SIGUSR1, proc7_su1, SIGUSR2);
+								setpgid(0, pid4);
+								pidnext = p;
+								tablenum = 7;
+								foo();
+								
+								
+								wait_fun(1);
+								exit(0);
+							}//--child 7
+							else if (p == 0)
+							{//child 8
+								handle(SIGUSR1, proc8_su1, SIGUSR2);
+								tablenum = 8;
+								pidnext = pid1;
+								foo();
+								
+//								kill(pid1, SIGUSR2);
+								while(!to_exit);
+								exit(0);
+							}//--child 8
+							
+							
+						}//--child 7
+						else if (p > 0)
+						{//child 6
+							handle(SIGUSR1, proc56_su1, SIGUSR2);
+							tablenum = 6;
+							foo();
+							wait_fun(1);
+							exit(0);
+						}//--child 6
+						
+						
+					}//--child 6
+					
+					
+				}
+				else if (p == 0)
+				{//child 5
+					handle(SIGUSR1, proc56_su1, SIGUSR2);
+					tablenum = 5;
+					foo();
+					
+					while(!to_exit);
+					exit(0);
+				}//--child 5
+				
+			}//--child 2
+			
+		}//--child 1
+		else if (p == 0)
+		{//child 4
+			handle(SIGUSR2, proc4_su2, SIGUSR1);
+			pidnext = 0;
+			tablenum = 4;
+			foo();
+			
+			while(!to_exit);
+			exit(0);
+		}//--child 4
+				
+	}//--child 1
+	else if (p > 0)
+	{//parent
+		wait_fun(1);
+		return 0;
+	}//--parent
+	
 }
-
-
-
-
-
-
-
-
-
-
-
-
