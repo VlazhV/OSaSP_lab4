@@ -15,7 +15,60 @@ pid_t pidnext;
 char *tmbuf;
 int to_exit = 0;
 
+int res;
+
 typedef void (*sighandler_t)(int);
+
+int handle(int signum, sighandler_t handler, int sigign, sighandler_t handler_term)
+{
+	struct sigaction sigact;
+	sigact.sa_flags = 0;
+	int res = sigemptyset(&sigact.sa_mask);
+	if (res == -1 )
+	{
+		fprintf(stderr, "#%d %d : sigemptyset() failed\n", tablenum, getpid());
+		perror(" ");
+		return -1;
+	}
+	
+	sigact.sa_handler = handler;
+	res = sigaction(signum, &sigact, NULL);
+	if (res == -1)
+	{
+		fprintf(stderr, "#%d %d : sigaction() failed\n", tablenum, getpid());
+		perror(" ");
+		return -1;
+	}
+	
+	if (sigign != -1 )
+	{
+		sigact.sa_handler = SIG_IGN;
+		res = sigaction(sigign, &sigact, NULL);
+		if (res == -1)
+		{
+			fprintf(stderr, "#%d %d : sigaction() failed\n", tablenum, getpid());
+			perror(" ");
+			return -1;
+		}
+	}
+
+	if (handler_term != NULL)
+	{
+		sigact.sa_handler = handler_term;
+		sigaddset(&sigact.sa_mask, SIGUSR1);
+		sigaddset(&sigact.sa_mask, SIGUSR2);
+		res = sigaction(SIGTERM, &sigact, NULL);
+		if (res == -1)
+		{
+			fprintf(stderr, "#%d %d : sigaction() failed\n", tablenum, getpid());
+			perror(" ");
+			return -1;
+		}
+	}
+	return 0;
+}
+
+
 
 int kill_fun(pid_t pid_to, int sig)
 {	
@@ -121,30 +174,12 @@ void proc1_su2(int signum)
 	printf("#%d %d  %d  get sigusr2 %s\n", tablenum, getpid(), getppid(), tmbuf != NULL ? tmbuf : "time error");
 	y++;
 	
-	if (y <= SIGS)
+	if (y < SIGS)
 		kill_fun(pidnext, SIGUSR1);
 	else
+	{
 		kill_fun(pidnext, SIGTERM);
-}
-
-void handle(int signum, sighandler_t handler, int sigign, sighandler_t handler_term)
-{
-	struct sigaction sigact;
-	sigact.sa_flags = 0;
-	sigemptyset(&sigact.sa_mask);
-	sigact.sa_handler = handler;
-	sigaction(signum, &sigact, NULL);
-	
-	if (sigign != -1 )
-	{
-		sigact.sa_handler = SIG_IGN;
-		sigaction(sigign, &sigact, NULL);
-	}
-
-	if (handler_term != NULL)
-	{
-		sigact.sa_handler = handler_term;
-		sigaction(SIGTERM, &sigact, NULL);
+		handle(SIGUSR2, SIG_IGN, SIGUSR1, SIG_IGN);
 	}
 }
 
@@ -153,15 +188,16 @@ void handle(int signum, sighandler_t handler, int sigign, sighandler_t handler_t
 
 void proc34_term(int sig)
 {
+	handle(SIGUSR1, SIG_IGN, SIGUSR2, SIG_IGN);
 	myTime(tmbuf);
 	kill_fun(pidnext, sig);
 	printf("#%d %d %d TERMINATED after %d %s %s\n", tablenum, getpid(), getppid(), x > 0 ? x : y, x > 0 ? "sigusr1" : "sigusr2", tmbuf != NULL ? tmbuf : "time error");
 	to_exit = 1;
-	handle(SIGTERM, SIG_IGN, -1, NULL);
 }
 
 void proc58_term(int sig)
 {
+	handle(SIGUSR1, SIG_IGN, SIGUSR2, SIG_IGN);
 	myTime(tmbuf);
 	printf("#%d %d %d TERMINATED after %d %s %s\n", tablenum, getpid(), getppid(), x > 0 ? x : y, x > 0 ? "sigusr1" : "sigusr2", tmbuf != NULL ? tmbuf : "time error");
 	to_exit = 1;
@@ -169,14 +205,17 @@ void proc58_term(int sig)
 
 void proc2_term(int sig)
 {
+	handle(SIGUSR1, SIG_IGN, SIGUSR2, SIG_IGN);
 	myTime(tmbuf);
 	wait_fun(2);
 	to_exit = 1;
 	printf("#%d %d %d TERMINATED after %d %s %s\n", tablenum, getpid(), getppid(), x, "sigusr1", tmbuf != NULL ? tmbuf : "time error");
+	
 }
 
 void proc6_term(int sig)
 {
+	handle(SIGUSR1, SIG_IGN, SIGUSR2, SIG_IGN);
 	myTime(tmbuf);
 	wait_fun(1);
 	to_exit = 1;
@@ -185,6 +224,7 @@ void proc6_term(int sig)
 
 void proc7_term(int sig)
 {
+	handle(SIGUSR1, SIG_IGN, SIGUSR2, SIG_IGN);
 	myTime(tmbuf);
 	kill_fun(pidnext, SIGTERM);
 	wait_fun(1);
@@ -214,7 +254,9 @@ int main()
 	pid_t pid1;
 	pid_t pid4;
 	
-	handle(SIGUSR1, SIG_IGN, SIGUSR2, SIG_IGN);
+	res = handle(SIGUSR1, SIG_IGN, SIGUSR2, SIG_IGN);
+	if (res == -1)
+		return -1;
 
 	pid_t p;
 	p = fork();
@@ -244,7 +286,7 @@ int main()
 					kill_fun(0, SIGUSR1);
 					wait_fun(3);
 					myTime(tmbuf);
-					printf("#%d %d %d TERMINATED after %d sigusr2 %s\n", tablenum, getpid(), getppid(), x, tmbuf != NULL ? tmbuf : "time error");
+					printf("#%d %d %d TERMINATED after %d sigusr2 %s\n", tablenum, getpid(), getppid(), y, tmbuf != NULL ? tmbuf : "time error");
 					exit(0);
 				}//--child 1
 				else if (p == 0)
@@ -257,7 +299,7 @@ int main()
 					foo();
 					
 					while(!to_exit);
-					puts("3 : exit");
+//					puts("3 : exit");
 					exit(0);
 					
 				}//--child 3
@@ -280,7 +322,7 @@ int main()
 						
 						sleep(3);
 						while(!to_exit);
-						puts("2 : exit");
+//						puts("2 : exit");
 						exit(0);
 					}//--child 2
 					else if (p == 0)
@@ -301,7 +343,7 @@ int main()
 								
 								
 								while(!to_exit);
-								puts("7 : exit");
+//								puts("7 : exit");
 								exit(0);
 							}//--child 7
 							else if (p == 0)
@@ -312,7 +354,7 @@ int main()
 								foo();
 								
 								while(!to_exit);
-								puts("8 : exit");
+//								puts("8 : exit");
 								exit(0);
 							}//--child 8
 							
@@ -325,7 +367,7 @@ int main()
 							foo();
 							
 							while(!to_exit);
-							puts("6 : exit");
+//							puts("6 : exit");
 							exit(0);
 						}//--child 6
 						
@@ -341,7 +383,7 @@ int main()
 					foo();
 					
 					while(!to_exit);
-					puts("5 : exit");
+//					puts("5 : exit");
 					exit(0);
 				}//--child 5
 				
@@ -356,7 +398,7 @@ int main()
 			foo();
 			
 			while(!to_exit);
-			puts("4 : exit");
+//			puts("4 : exit");
 			exit(0);
 		}//--child 4
 				
