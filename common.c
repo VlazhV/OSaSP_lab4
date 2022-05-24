@@ -114,6 +114,7 @@ int createChildProcesses(int nChild)
 			perror("error cch1 : sigemptyset() failed");
 			sem_post(sem_id);
 			sem_close(sem_id);
+			sem_unlink(SEM1);
 			_exit(-1);
 		}
 		
@@ -123,6 +124,7 @@ int createChildProcesses(int nChild)
 			perror("error cch2 : sigaddset() failed");
 			sem_post(sem_id);
 			sem_close(sem_id);
+			sem_unlink(SEM1);
 			_exit(-2);
 		}
 		sigact.sa_flags = 0;
@@ -133,6 +135,7 @@ int createChildProcesses(int nChild)
 			perror("error cch3 : sigaction failed()");
 			sem_post(sem_id);
 			sem_close(sem_id);
+			sem_unlink(SEM1);
 			_exit(-3);
 		}
 		
@@ -143,6 +146,7 @@ int createChildProcesses(int nChild)
 			perror("error cch1 : sigemptyset() failed");
 			sem_post(sem_id);
 			sem_close(sem_id);
+			sem_unlink(SEM1);
 			_exit(-1);
 		}
 		sigact.sa_flags = 0;		
@@ -153,6 +157,7 @@ int createChildProcesses(int nChild)
 			perror("error cch3 : sigaction failed()");
 			sem_post(sem_id);
 			sem_close(sem_id);
+			sem_unlink(SEM1);
 			_exit(-3);
 		}
 				
@@ -164,6 +169,7 @@ int createChildProcesses(int nChild)
 			perror("error cch1 : sigemptyset() failed");
 			sem_post(sem_id);
 			sem_close(sem_id);
+			sem_unlink(SEM1);
 			_exit(-1);
 		}
 		
@@ -173,34 +179,40 @@ int createChildProcesses(int nChild)
 			perror("error cch2 : sigaddset() failed");
 			sem_post(sem_id);
 			sem_close(sem_id);
+			sem_unlink(SEM1);
 			_exit(-2);
-		}
-		
+		}		
 		res = sem_post(sem_id);
 		if (res == -1)
 		{
 			perror("error cch3 : sem_post() failed");
 			sem_close(sem_id);
+			sem_unlink(SEM1);
 			_exit(-3);
 		}
+		
+		res = sem_close(sem_id);
+		if (res == -1)
+			perror ("error cch4 : sem_close() failed");
+			
+		
+		res = sem_unlink(SEM1);
+		if (res == -1)
+			perror("error cch5 : sem_unlink() failed");
+		
+		
 		
 		res = sigwait(&sigsetTstp, &sig);
 		myTime(tmBuf);
 		if (res > 0)
 		{
 			perror("error cpp5: sigwait() failed");
-			sem_close(sem_id);
 			_exit(-5);
 		}
 		
 		printf("\n|--- CHILD [terminate]: my pid is %d\t my parent's pid is %d\t%s ---|\n\n", getpid(), getppid(), tmBuf != NULL ? tmBuf : "time error");
 		
-		res = sem_close(sem_id);
-		if (res == -1)
-		{
-			perror("error cch4: sem_close() failed");
-			_exit(-4);
-		}
+		
 		_exit(0);
 	default:
 
@@ -272,7 +284,6 @@ int main()
 	{
 		perror("error m2 : Creating children failed");
 		sem_close(sem_id);
-		sem_unlink(SEM1);
 		return -2;
 	}
 	
@@ -294,7 +305,6 @@ int main()
 	{
 		perror("error : sigemptyset() failed");
 		sem_close(sem_id);
-		sem_unlink(SEM1);
 		return -1;
 	}
 	
@@ -303,7 +313,6 @@ int main()
 	{
 		perror("error : sigaction() failed");
 		sem_close(sem_id);
-		sem_unlink(SEM1);
 		return -1;
 	}
 	
@@ -312,7 +321,6 @@ int main()
 	{
 		perror("error: signal() failed");
 		sem_close(sem_id);
-		sem_unlink(SEM1);
 		return -1;
 	}
 	
@@ -321,7 +329,6 @@ int main()
 	{
 		perror("error: signal() failed");
 		sem_close(sem_id);
-		sem_unlink(SEM1);
 		return -1;
 	}
 	
@@ -379,15 +386,11 @@ int main()
 		}
 	}	
 	
-	
-	printf("\n\nPARENT EXIT\n\n");
 	res = sem_close(sem_id);
 	if (res == -1)
 		perror ("error m10 : sem_close() failed");
-		
-	
-	res = sem_unlink(SEM1);
-	if (res == -1)
-		perror("error m11 : sem_unlink() failed");
+
+
+	printf("\n\nPARENT EXIT\n\n");
 	return 0;
 }
