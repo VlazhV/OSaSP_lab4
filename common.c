@@ -6,6 +6,7 @@
 #include <sys/wait.h> 
 #include <time.h>
 #include <signal.h>
+#include "../lab5/mytime.c"
 
 #include <semaphore.h>
 #include <fcntl.h>
@@ -13,50 +14,25 @@
 
 #define SLEEP_TIME 100000
 #define SIGNALS 10
-#define TIME_MAX 12
-#define SEM1 "/sem1"
+#define SEM1 "/sem_common_cc"
 
 char *tmBuf;
-char *myTime(char *tmBuf)
-{
-
-	for (int i = 0; i < 10; ++i)
-	if (tmBuf == NULL)
-	{
-		fprintf(stderr, "error mT1: myTime(null)");
-		return NULL;
-	}
-	
-	
-	struct timespec mtime;
-	if (clock_gettime(CLOCK_REALTIME, &mtime) < 0)
-	{
-		perror("error mT3 : clock_gettime() failed");
-		return NULL;
-	}
-	
-	struct tm *hms = localtime(&(mtime.tv_sec));
-	if (!hms)
-	{
-		perror("error mT4: localtime() failed");
-		return NULL;
-	}
-		
-	if (sprintf(tmBuf, "%d:%d:%d:%d", hms->tm_hour, hms->tm_min, hms->tm_sec, (int)mtime.tv_nsec/1000) < 0)
-	{
-		perror("error mT2 : sprintf() failed");
-		return NULL;
-	}
-
-
-	return tmBuf;
-}
+sem_t *sem_id;
 
 
 static int NoMessage = 0;
 
 typedef void (*sighandler_t)(int);
 
+void handlerInt(int siging)
+{
+	int res = sem_unlink(SEM1);
+	if (res == -1)
+		perror("sem_unlink failed()");
+	
+	
+	exit(0);
+}
 
 void emptyhandlerTstp(int NoSig)
 {}
@@ -83,6 +59,8 @@ void handlerUsr1(int NoSig)
 
 
 
+
+
 int createChildProcesses(int nChild)
 {
 	if (nChild == 0)
@@ -92,7 +70,7 @@ int createChildProcesses(int nChild)
 	pid_t pid;
 	int res;
 	int sig;
-	sem_t *sem_id;
+//	sem_t *sem_id;
 	
 	struct sigaction sigact;
 	sigset_t sigsetTstp;
@@ -104,7 +82,13 @@ int createChildProcesses(int nChild)
 		return -1;
 	case 0:
 		
-		sem_id = sem_open(SEM1, 0);
+//		sem_id = sem_open(SEM1, 0);
+//		if (sem_id == SEM_FAILED)
+//		{
+//			perror("error cch10: sem_open() failed");
+//			_exit(-10);
+//		}
+		
 		printf("\n|--- CHILD [create]: my pid is %d\t my parent's pid is %d\t%s ---|\n\n", getpid(), getppid(), myTime(tmBuf) != NULL ? tmBuf : "time error");
 
 		sigact.sa_handler = handlerUsr1;
@@ -114,7 +98,6 @@ int createChildProcesses(int nChild)
 			perror("error cch1 : sigemptyset() failed");
 			sem_post(sem_id);
 			sem_close(sem_id);
-			sem_unlink(SEM1);
 			_exit(-1);
 		}
 		
@@ -124,7 +107,6 @@ int createChildProcesses(int nChild)
 			perror("error cch2 : sigaddset() failed");
 			sem_post(sem_id);
 			sem_close(sem_id);
-			sem_unlink(SEM1);
 			_exit(-2);
 		}
 		sigact.sa_flags = 0;
@@ -135,7 +117,6 @@ int createChildProcesses(int nChild)
 			perror("error cch3 : sigaction failed()");
 			sem_post(sem_id);
 			sem_close(sem_id);
-			sem_unlink(SEM1);
 			_exit(-3);
 		}
 		
@@ -146,10 +127,9 @@ int createChildProcesses(int nChild)
 			perror("error cch1 : sigemptyset() failed");
 			sem_post(sem_id);
 			sem_close(sem_id);
-			sem_unlink(SEM1);
 			_exit(-1);
 		}
-		sigact.sa_flags = 0;		
+		sigact.sa_flags = 0;
 		
 		res = sigaction(SIGTSTP, &sigact, NULL);
 		if (res == -1)
@@ -157,7 +137,6 @@ int createChildProcesses(int nChild)
 			perror("error cch3 : sigaction failed()");
 			sem_post(sem_id);
 			sem_close(sem_id);
-			sem_unlink(SEM1);
 			_exit(-3);
 		}
 				
@@ -169,7 +148,6 @@ int createChildProcesses(int nChild)
 			perror("error cch1 : sigemptyset() failed");
 			sem_post(sem_id);
 			sem_close(sem_id);
-			sem_unlink(SEM1);
 			_exit(-1);
 		}
 		
@@ -179,28 +157,22 @@ int createChildProcesses(int nChild)
 			perror("error cch2 : sigaddset() failed");
 			sem_post(sem_id);
 			sem_close(sem_id);
-			sem_unlink(SEM1);
 			_exit(-2);
 		}		
+		
 		res = sem_post(sem_id);
 		if (res == -1)
 		{
 			perror("error cch3 : sem_post() failed");
 			sem_close(sem_id);
-			sem_unlink(SEM1);
 			_exit(-3);
 		}
 		
-		res = sem_close(sem_id);
-		if (res == -1)
-			perror ("error cch4 : sem_close() failed");
-			
 		
-		res = sem_unlink(SEM1);
-		if (res == -1)
-			perror("error cch5 : sem_unlink() failed");
-		
-		
+//		res = sem_close(sem_id);
+//		if (res == -1)
+//			perror ("error cch4 : sem_close() failed");
+//			
 		
 		res = sigwait(&sigsetTstp, &sig);
 		myTime(tmBuf);
@@ -211,7 +183,6 @@ int createChildProcesses(int nChild)
 		}
 		
 		printf("\n|--- CHILD [terminate]: my pid is %d\t my parent's pid is %d\t%s ---|\n\n", getpid(), getppid(), tmBuf != NULL ? tmBuf : "time error");
-		
 		
 		_exit(0);
 	default:
@@ -258,17 +229,12 @@ void handlerUsr2(int NoSig, siginfo_t *info, void *context)
 			printf("\t\t#%d parent(%d) SENT signal SIGTSTP to children\t%s\n",
 								++NoMessage, getpid(), tmBuf != NULL ? tmBuf : "time error");
 	}
-	
-	
-
 }
 
 
 int main()
 {
 	int nChildren = 2;
-	
-	
 	
 	tmBuf = (char*)calloc(TIME_MAX, 1);
 	if (!tmBuf)
@@ -277,24 +243,25 @@ int main()
 		return -1;
 	}
 	
-	sem_t *sem_id = sem_open(SEM1, O_CREAT, 777, 0);
+	sem_id = sem_open(SEM1, O_CREAT, 000, 0);
+	if (sem_id == SEM_FAILED)
+	{
+		perror("error m12: sem_open() failed");
+		return -1;
+	}
+	
+		
 	
 	int res = createChildProcesses(nChildren);
 	if (res)
 	{
-		perror("error m2 : Creating children failed");
 		sem_close(sem_id);
-		return -2;
+		sem_unlink(SEM1);
+		return -1;
 	}
 	
-
 	
-	printf("\n|--- PARENT : my pid is %d\t my parent's pid is %d\t%s ---|\n\n", getpid(), getppid(), myTime(tmBuf) != NULL ? tmBuf : "time error");
-
-	//sleep(1);	
-	for (int i = 0; i < nChildren; ++i)
-		sem_wait(sem_id);
-
+	
 //SIG_HANDLE
 	struct sigaction sigact;
 	sigact.sa_sigaction = handlerUsr2;
@@ -305,6 +272,7 @@ int main()
 	{
 		perror("error : sigemptyset() failed");
 		sem_close(sem_id);
+		sem_unlink(SEM1);
 		return -1;
 	}
 	
@@ -313,6 +281,7 @@ int main()
 	{
 		perror("error : sigaction() failed");
 		sem_close(sem_id);
+		sem_unlink(SEM1);
 		return -1;
 	}
 	
@@ -321,6 +290,15 @@ int main()
 	{
 		perror("error: signal() failed");
 		sem_close(sem_id);
+		sem_unlink(SEM1);
+		return -1;
+	}
+	
+	resh = signal(SIGINT, handlerInt);
+	if (resh == SIG_ERR)
+	{
+		perror("error: signal failed");
+		sem_unlink(SEM1);
 		return -1;
 	}
 	
@@ -329,13 +307,23 @@ int main()
 	{
 		perror("error: signal() failed");
 		sem_close(sem_id);
+		sem_unlink(SEM1);
 		return -1;
 	}
 	
 	
-	
 
-//SET SIGSET FOR SIGWAIT()
+	
+	printf("\n|--- PARENT : my pid is %d\t my parent's pid is %d\t%s ---|\n\n", getpid(), getppid(), myTime(tmBuf) != NULL ? tmBuf : "time error");
+	//system("ipcs -s -u");
+
+//WAIT HANDLING CHILD
+	for (int i = 0; i < nChildren; ++i)
+	{
+		res = sem_wait(sem_id);
+		if (res == -1)
+			perror("error m3: sem_wait() failed");
+	}
 	
 	
 			
@@ -349,12 +337,6 @@ int main()
 	else
 		printf("\t\t#%d parent(%d) SENT signal SIGUSR2 to children\t%s\n",
 									++NoMessage, getpid(), tmBuf != NULL ? tmBuf : "time error");
-				
-//SEND STOP SIGNAL
-
-
-	
-	//sleep(2);
 
 //WAIT CHILDREN ENDING
 	int ws;
@@ -389,6 +371,12 @@ int main()
 	res = sem_close(sem_id);
 	if (res == -1)
 		perror ("error m10 : sem_close() failed");
+		
+	
+	
+	res = sem_unlink(SEM1);
+	if (res == -1)
+		perror ("error m11 : sem_link() failed");
 
 
 	printf("\n\nPARENT EXIT\n\n");
