@@ -243,7 +243,7 @@ int main()
 		return -1;
 	}
 	
-	sem_id = sem_open(SEM1, O_CREAT, 000, 0);
+	sem_id = sem_open(SEM1, O_CREAT, 777, 0);
 	if (sem_id == SEM_FAILED)
 	{
 		perror("error m12: sem_open() failed");
