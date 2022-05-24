@@ -3,10 +3,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/wait.h>
+#include <semaphore.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 
 #include "../lab5/mytime.c"
 
 #define SIGS 101
+#define SEM "/sem_ind"
+#define PROCS 8
 
 
 int tablenum;
@@ -14,10 +19,32 @@ int x = 0, y = 0;
 pid_t pidnext;
 char *tmbuf;
 int to_exit = 0;
+sem_t *sem_id;
 
 int res;
 
 typedef void (*sighandler_t)(int);
+
+int sem_post_close_fun(sem_t *sem_id)
+{
+	int res = sem_post(sem_id);
+	if (res == -1)
+	{
+		fprintf(stderr, "proc #%d : sem_post() failed\n", tablenum);
+		perror(" ");
+		sem_close(sem_id);
+		return -1;
+	}
+	
+	res = sem_close(sem_id);
+	if (res == -1)
+	{
+		fprintf(stderr, "proc #%d : sem_close() failed\n", tablenum);
+		perror(" ");
+		return -1;
+	}
+	return 0;
+}
 
 int handle(int signum, sighandler_t handler, int sigign, sighandler_t handler_term)
 {
@@ -85,10 +112,11 @@ int kill_fun(pid_t pid_to, int sig)
 	
 }
 
-void wait_fun(int n_children)
+int wait_fun(int n_children)
 {
 	int ws;
 	int pid;
+	int retval = 0;
 	
 	for (int i = 0; i < n_children; ++i)
 	{
@@ -100,7 +128,10 @@ void wait_fun(int n_children)
 			if (WIFEXITED(ws))
 			{
 				if (WEXITSTATUS(ws) != 0)
-					fprintf(stderr, "%d terminated unsuccessfully\n", pid);
+					{
+						fprintf(stderr, "%d terminated unsuccessfully\n", pid);
+						retval = -1;
+					}
 //				else
 	//				printf("%d terminated successfully\n", pid);
 			}
@@ -114,6 +145,7 @@ void wait_fun(int n_children)
 			--i;
 		
 	}
+	return retval;
 }
 
 
@@ -177,7 +209,7 @@ void proc1_su2(int signum)
 	if (y < SIGS)
 		kill_fun(pidnext, SIGUSR1);
 	else
-	{
+	{	
 		kill_fun(pidnext, SIGTERM);
 		handle(SIGUSR2, SIG_IGN, SIGUSR1, SIG_IGN);
 	}
@@ -257,11 +289,19 @@ int main()
 	res = handle(SIGUSR1, SIG_IGN, SIGUSR2, SIG_IGN);
 	if (res == -1)
 		return -1;
+		
+	sem_id = sem_open(SEM, O_CREAT, 777, 0);
+	if (sem_id == SEM_FAILED)
+	{
+		perror("proc 1 : sem_open() failed");
+		exit(-1);
+	}
 
 	pid_t p;
 	p = fork();
 	if (p == 0) //parent 0  --> parent 0 + child 1
 	{//child 1
+		
 		pidnext = 0;
 		pid1 = getpid(); 
 		p = fork();  // child 1 --> child 1 + child 4
@@ -282,9 +322,18 @@ int main()
 					tablenum = 1;
 					foo();
 					
-					sleep(1);
+					//sleep(1);
+					for (int i = 0; i < PROCS - 1; ++i)
+					{
+						res = sem_wait(sem_id);
+						if (res == -1)
+							perror ("proc 1: sem_wait() failed");
+					}
+					
 					kill_fun(0, SIGUSR1);
-					wait_fun(3);
+					res = wait_fun(3);
+					if (res == -1)
+						exit(-1);
 					myTime(tmbuf);
 					printf("#%d %d %d TERMINATED after %d sigusr2 %s\n", tablenum, getpid(), getppid(), y, tmbuf != NULL ? tmbuf : "time error");
 					exit(0);
@@ -297,6 +346,10 @@ int main()
 					setpgid(0, getppid());
 					tablenum = 3;
 					foo();
+					
+					res = sem_post_close_fun(sem_id);
+					if (res == -1)
+						exit(-1);
 					
 					while(!to_exit);
 //					puts("3 : exit");
@@ -320,7 +373,12 @@ int main()
 						tablenum = 2;
 						foo();
 						
-						sleep(3);
+						
+						res = sem_post_close_fun(sem_id);
+						if (res == -1)
+							exit(-1);
+						
+						
 						while(!to_exit);
 //						puts("2 : exit");
 						exit(0);
@@ -341,6 +399,10 @@ int main()
 								tablenum = 7;
 								foo();
 								
+								res = sem_post_close_fun(sem_id);
+								if (res == -1)
+									exit(-1);
+								
 								
 								while(!to_exit);
 //								puts("7 : exit");
@@ -352,6 +414,10 @@ int main()
 								tablenum = 8;
 								pidnext = pid1;
 								foo();
+								
+								res = sem_post_close_fun(sem_id);
+								if (res == -1)
+									exit(-1);
 								
 								while(!to_exit);
 //								puts("8 : exit");
@@ -365,6 +431,10 @@ int main()
 							handle(SIGUSR1, proc56_su1, SIGUSR2, proc6_term);
 							tablenum = 6;
 							foo();
+							
+							res = sem_post_close_fun(sem_id);
+							if (res == -1)
+								exit(-1);
 							
 							while(!to_exit);
 //							puts("6 : exit");
@@ -382,6 +452,10 @@ int main()
 					tablenum = 5;
 					foo();
 					
+					res = sem_post_close_fun(sem_id);
+					if (res == -1)
+						exit(-1);
+						
 					while(!to_exit);
 //					puts("5 : exit");
 					exit(0);
@@ -397,6 +471,12 @@ int main()
 			tablenum = 4;
 			foo();
 			
+			
+			res = sem_post_close_fun(sem_id);
+			if (res == -1)
+				exit(-1);
+			
+			
 			while(!to_exit);
 //			puts("4 : exit");
 			exit(0);
@@ -406,6 +486,7 @@ int main()
 	else if (p > 0)
 	{//parent
 		wait_fun(1);
+		sem_unlink(SEM);
 		return 0;
 	}//--parent
 	
