@@ -82,8 +82,20 @@ int handle(int signum, sighandler_t handler, int sigign, sighandler_t handler_te
 	if (handler_term != NULL)
 	{
 		sigact.sa_handler = handler_term;
-		sigaddset(&sigact.sa_mask, SIGUSR1);
-		sigaddset(&sigact.sa_mask, SIGUSR2);
+		res = sigaddset(&sigact.sa_mask, SIGUSR1);
+		if (res == -1)
+		{
+			fprintf(stderr, "#%d %d : sigaddset() failed", tablenum, getpid());
+			perror(" ");
+			return -1;
+		}
+		res = sigaddset(&sigact.sa_mask, SIGUSR2);
+		if (res == -1)
+		{
+			fprintf(stderr, "#%d %d : sigaddset() failed", tablenum, getpid());
+			perror(" ");
+			return -1;
+		}
 		res = sigaction(SIGTERM, &sigact, NULL);
 		if (res == -1)
 		{
@@ -99,6 +111,7 @@ int handle(int signum, sighandler_t handler, int sigign, sighandler_t handler_te
 
 int kill_fun(pid_t pid_to, int sig)
 {	
+	myTime(tmbuf);
 	int res = kill( pid_to, sig);
 	if (res == 0)
 		printf("#%d %d %d  send %s %s\n", tablenum, getpid(), getppid(), sig == SIGUSR1 ? "sigusr1" : sig == SIGUSR2 ? "sigusr2" : "sigterm" ,tmbuf != NULL ? tmbuf : "time error");
