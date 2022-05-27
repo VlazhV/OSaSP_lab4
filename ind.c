@@ -165,14 +165,14 @@ int wait_fun(int n_children)
 void proc2_su1(int signum)
 {
 	myTime(tmbuf);
-	printf("#%d %d  %d  get sigusr1 %s\n", tablenum, getpid(), getppid(), tmbuf != NULL ? tmbuf : "time error");
+	printf("#%d %d %d  get sigusr1 %s\n", tablenum, getpid(), getppid(), tmbuf != NULL ? tmbuf : "time error");
 	x++;
 }
 
 void proc3_su1(int signum)
 {
 	myTime(tmbuf);
-	printf("#%d %d  %d  get sigusr1 %s\n", tablenum, getpid(), getppid(), tmbuf != NULL ? tmbuf : "time error");
+	printf("#%d %d %d  get sigusr1 %s\n", tablenum, getpid(), getppid(), tmbuf != NULL ? tmbuf : "time error");
 	x++;
 	
 	kill_fun(pidnext, SIGUSR2);
@@ -181,7 +181,7 @@ void proc3_su1(int signum)
 void proc4_su2(int signum)
 {
 	myTime(tmbuf);
-	printf("#%d %d  %d  get sigusr1 %s\n", tablenum, getpid(), getppid(), tmbuf != NULL ? tmbuf : "time error");
+	printf("#%d %d %d  get sigusr1 %s\n", tablenum, getpid(), getppid(), tmbuf != NULL ? tmbuf : "time error");
 	y++;
 	
 	kill_fun(pidnext, SIGUSR1);
@@ -191,14 +191,14 @@ void proc4_su2(int signum)
 void proc56_su1(int signum)
 {
 	myTime(tmbuf);
-	printf("#%d %d  %d  get sigusr1 %s\n", tablenum, getpid(), getppid(), tmbuf != NULL ? tmbuf : "time error");
+	printf("#%d %d %d  get sigusr1 %s\n", tablenum, getpid(), getppid(), tmbuf != NULL ? tmbuf : "time error");
 	x++;
 }
 
 void proc7_su1(int signum)
 {
 	myTime(tmbuf);
-	printf("#%d %d  %d  get sigusr1 %s\n", tablenum, getpid(), getppid(), tmbuf != NULL ? tmbuf : "time error");
+	printf("#%d %d %d  get sigusr1 %s\n", tablenum, getpid(), getppid(), tmbuf != NULL ? tmbuf : "time error");
 	
 	x++;
 	kill_fun(pidnext, SIGUSR1);
@@ -207,7 +207,7 @@ void proc7_su1(int signum)
 void proc8_su1(int signum)
 {
 	myTime(tmbuf);
-	printf("#%d %d  %d  get sigusr1 %s\n", tablenum, getpid(), getppid(), tmbuf != NULL ? tmbuf : "time error");
+	printf("#%d %d %d  get sigusr1 %s\n", tablenum, getpid(), getppid(), tmbuf != NULL ? tmbuf : "time error");
 	x++;
 	
 	kill_fun(pidnext, SIGUSR2);
@@ -216,7 +216,7 @@ void proc8_su1(int signum)
 void proc1_su2(int signum)
 {
 	myTime(tmbuf);
-	printf("#%d %d  %d  get sigusr2 %s\n", tablenum, getpid(), getppid(), tmbuf != NULL ? tmbuf : "time error");
+	printf("#%d %d %d  get sigusr2 %s\n", tablenum, getpid(), getppid(), tmbuf != NULL ? tmbuf : "time error");
 	y++;
 	
 	if (y < SIGS)
@@ -280,7 +280,7 @@ void proc7_term(int sig)
 
 void foo()
 {
-	printf("#%d %d  %d\t  pgid=%d\n", tablenum, getpid(), getppid(), getpgid(0));
+	printf("#%d %d %d\t  pgid=%d\n", tablenum, getpid(), getppid(), getpgid(0));
 }
 
 int main()
